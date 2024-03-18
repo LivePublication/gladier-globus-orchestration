@@ -2,39 +2,20 @@
 This file contains a single LivePublication Action Provider flow using Gladier & Globus interfaces. 
 It serves as an experimental testbench for the LivePublication CLI.
 """
-from logger_config import logger
-from typing import Dict
+from logger_config import logger, extract_flow_info
 import json
 import time
 import os
-import datetime
 
 from gladier import GladierBaseClient, generate_flow_definition
-from globus_sdk.scopes import GCSCollectionScopeBuilder, TransferScopes
+from globus_sdk.scopes import GCSCollectionScopeBuilder
 from pprint import pprint
+from datetime import datetime
 
 # Import config variables & custom tools
 from config import DataStoreUUID, ComputeUUID, CollectionIDs, Compute_DS_UUID, InputPath, OutputPath, TransferFile
 from gladier_components.BeeMovieScript import GetBeeMovieScript
 from gladier_components.ListDirectory import FileSystemListCommand
-
-def extract_flow_info(status: Dict) -> str:
-    code = status['details'].get('code', 'Unknown')
-    description = status['details'].get('description', 'No description available')
-    state_name = status['details'].get('state_name', 'Unknown state')
-    action_status = status['details'].get('action_statuses', [])
-    action_info = ''
-    
-    if action_status:
-        action = action_status[0]  # Assuming we're interested in the first action
-        action_info = f"Action: {action.get('status', 'Unknown status')}, "
-        action_details = action.get('details', {})
-        action_info += f"Type: {action_details.get('type', 'Unknown type')}, "
-        action_info += f"Label: {action_details.get('label', 'No label')}, "
-        action_info += f"Status: {action_details.get('status', 'No status')}"
-    
-    log_entry = f"Code: {code}, Description: {description}, State: {state_name}, {action_info}"
-    return log_entry
 
 def run_flow():
     """
@@ -56,9 +37,7 @@ def run_flow():
             "gladier_tools.globus.Transfer:ToCompute",
             FileSystemListCommand,
             GetBeeMovieScript,
-            "gladier_tools.globus.Transfer:FromCompute",
-            # FileSystemListCommand
-            # "gladier_tools.posix.Tar"
+            "gladier_tools.globus.Transfer:FromCompute"
         ]
 
     flow_input = {
@@ -98,16 +77,10 @@ def run_flow():
         flow_input=flow_input,
         label="Simple four step with Compute and Connect Servers",
     )
-
-    # If you want to wait on the output, 
-    # you can use the following code:
-
-    # action_id = flow['action_id']
-    # example_flow_client.progress(action_id)
-    # logger.info("Flow status:" + pprint(example_flow_client.get_status(action_id)))
-   
-    action_id = flow['action_id']
+    
+    # Logging flow execution
     while True:
+        action_id = flow['action_id']
         status = example_flow_client.get_status(action_id)
         logger.info(extract_flow_info(status))
         if status['status'] in ['SUCCEEDED', 'FAILED']:
